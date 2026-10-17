@@ -1,6 +1,8 @@
 package com.rudesync.clock;
 
 import android.app.Activity;
+import android.net.ConnectivityManager;
+import android.net.Network;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -40,11 +42,21 @@ public class MainActivity extends Activity {
         setContentView(web);
         hideSystemBars();
 
+        // No internet: show the last saved copy of the clock instead of an error page
+        s.setCacheMode(isOnline() ? WebSettings.LOAD_DEFAULT : WebSettings.LOAD_CACHE_ELSE_NETWORK);
+
         if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(CLOCK_URL);
         }
+    }
+
+    private boolean isOnline() {
+        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
+        if (cm == null) return true;
+        Network n = cm.getActiveNetwork();
+        return n != null;
     }
 
     private void hideSystemBars() {
@@ -79,12 +91,20 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
+        web.getSettings().setCacheMode(isOnline() ? WebSettings.LOAD_DEFAULT : WebSettings.LOAD_CACHE_ELSE_NETWORK);
+        tellPage(true);
     }
 
     @Override
     protected void onPause() {
+        tellPage(false);   // tell the clock it's closed before pausing
         web.onPause();
         super.onPause();
+    }
+
+    private void tellPage(boolean visible) {
+        web.evaluateJavascript(
+                "window.__clockVisible && window.__clockVisible(" + visible + ")", null);
     }
 
     @Override
